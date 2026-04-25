@@ -1,0 +1,25 @@
+[project]
+name = "langchain-doc-indexer"
+version = "0.1.0"
+description = "Versions"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "python-dotenv",
+    "langchain>=1.2.15",
+    "langchain-core>=1.2.28",
+    "langchain-openai",
+    "langchain-tavily>=0.2.17",
+    "black>=26.3.1",
+    "isort>=8.0.1",
+    "tavily>=1.1.0",
+    "pydantic>=2.12.5",
+    "typing>=3.10.0.0",
+    "langchain-aws>=1.4.3",
+    "ollama>=0.6.1",
+    "langchain-community>=0.4.1",
+    "langchain-text-splitters>=1.1.1",
+    "langchain-pinecone>=0.2.13",
+    "asyncio>=4.0.0",
+    "langchain-chroma>=1.1.0",
+]
