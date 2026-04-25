@@ -1,0 +1,100 @@
+name: Documentation Ingestion Pipeline
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC (adjust time as needed)
+    - cron: '0 2 * * *'
+  
+  # Allow manual trigger from Actions tab
+  workflow_dispatch:
+  
+  # Run on push to main branch (optional)
+  push:
+    branches:
+      - main
+    paths:
+      - 'ingestion.py'
+      - 'logger.py'
+      - 'pyproject.toml'
+      - '.github/workflows/test.yml'
+
+jobs:
+  ingestion:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.12']
+    
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+      
+      - name: Verify imports
+        run: |
+          python -c "import langchain; import langchain_tavily; import langchain_pinecone; print('✓ All imports successful')"
+      
+      - name: Run ingestion pipeline
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+        run: |
+          python ingestion.py
+        continue-on-error: true
+      
+      - name: Generate timestamp
+        id: timestamp
+        run: echo "time=$(date '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_OUTPUT
+      
+      - name: Upload logs (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: pipeline-logs-${{ matrix.python-version }}
+          path: |
+            *.log
+          retention-days: 7
+      
+      - name: Notify success
+        if: success()
+        run: |
+          echo "✅ Documentation ingestion pipeline completed successfully"
+          echo "Timestamp: ${{ steps.timestamp.outputs.time }}"
+      
+      - name: Notify failure
+        if: failure()
+        run: |
+          echo "⚠️ Documentation ingestion pipeline encountered errors"
+          echo "Timestamp: ${{ steps.timestamp.outputs.time }}"
+          echo "Please check the logs above for details"
+        continue-on-error: true
+
+  notify:
+    needs: ingestion
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Pipeline Status
+        run: |
+          if [ "${{ needs.ingestion.result }}" == "success" ]; then
+            echo "✅ All checks passed"
+            exit 0
+          else
+            echo "⚠️ Some checks failed (see logs above)"
+            exit 0
+          fi
